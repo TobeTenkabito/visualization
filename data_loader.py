@@ -1,5 +1,4 @@
 import xarray as xr
-
 file_path = 'G:/Ar_dataverse/globalARcatalog_ERA5_1940-2024_v4.0.nc'
 
 try:
@@ -12,7 +11,8 @@ try:
 
     # 添加新的综合可视化选项
     visualization_options = [
-        {'label': '综合可视化', 'value': 'Combined'},
+        {'label': '大气河流可视化', 'value': 'Combined'},
+        {'label': '降水可视化', 'value': 'Precipitation'},
         {'label': '待拓展', 'value': 'Other'}
     ]
 
