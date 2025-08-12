@@ -1,6 +1,10 @@
+# layout.py
 from dash import dcc, html
 import plotly.graph_objects as go
-from data_loader import time_coords, visualization_options
+
+# 由于数据在启动时未加载，这里使用空列表和初始值
+time_coords = []
+visualization_options = []
 
 initial_figure = go.Figure()
 initial_figure.update_geos(
@@ -32,21 +36,50 @@ initial_figure.update_layout(
 )
 
 app_layout = html.Div(style={'fontFamily': 'Arial, sans-serif', 'padding': '20px'}, children=[
-    html.H1("全球大气河流数据可视化", style={'textAlign': 'center', 'color': '#003366'}),
+    html.H1("全球netCDF数据可视化", style={'textAlign': 'center', 'color': '#003366'}),
     html.Hr(),
+
+    # 文件上传组件
+    dcc.Upload(
+        id='upload-data',
+        children=html.Div([
+            '拖拽或 ',
+            html.A('选择文件')
+        ]),
+        style={
+            'width': '100%',
+            'height': '60px',
+            'lineHeight': '60px',
+            'borderWidth': '1px',
+            'borderStyle': 'dashed',
+            'borderRadius': '5px',
+            'textAlign': 'center',
+            'margin': '10px'
+        },
+        multiple=False
+    ),
+    html.Div(id='output-filename', style={'textAlign': 'center', 'marginBottom': '20px'}),
+
+    # 隐藏的dcc.Store组件，用于在回调函数之间存储数据
+    dcc.Store(id='data-store', data=None),
 
     html.Div([
         html.Label('选择可视化变量:', style={'marginRight': '10px'}),
         dcc.Dropdown(
             id='variable-selector',
             options=visualization_options,
-            value='Centroid',
+            value=None,  # 初始值为None，等待数据加载
             clearable=False,
             style={'width': '250px'}
         ),
     ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '20px'}),
 
-    dcc.Graph(id='map-graph', style={'height': '80vh', 'border': '1px solid #ddd'}, figure=initial_figure),
+    # 将dcc.Loading包裹在dcc.Graph周围，使其在图表更新时显示动画
+    dcc.Loading(
+        id="loading-map",
+        type="default",
+        children=dcc.Graph(id='map-graph', style={'height': '80vh', 'border': '1px solid #ddd'}, figure=initial_figure)
+    ),
 
     html.Div([
         html.Button('播放', id='play-button', n_clicks=0, style={'marginRight': '10px'}),
@@ -67,7 +100,8 @@ app_layout = html.Div(style={'fontFamily': 'Arial, sans-serif', 'padding': '20px
         dcc.Slider(
             id='time-slider',
             min=0,
-            max=len(time_coords) - 1 if len(time_coords) > 0 else 0,
+            # 初始状态下max和value为0，因为没有数据
+            max=0,
             value=0,
             marks=None,
             tooltip={"placement": "bottom", "always_visible": True}

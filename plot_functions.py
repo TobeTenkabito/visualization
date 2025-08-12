@@ -2,43 +2,58 @@ import plotly.graph_objects as go
 import plotly.colors
 import pandas as pd
 import numpy as np
-from data_loader import ds, lons, lats
 
 
-def create_combined_ar_figure(selected_time_index, current_figure):
+def create_combined_ar_figure(selected_time_index, current_figure, ds_dict, time_coords, lons, lats):
     """
     根据给定的时间索引和当前图形数据，生成一个包含大气河流综合可视化数据的 Plotly Figure。
 
     参数:
     - selected_time_index (int): 选定的时间步索引。
     - current_figure (dict): 当前地图图形的 JSON 格式字典，用于更新。
+    - ds_dict (dict): 从dcc.Store中传递过来的数据集字典。
+    - time_coords (list): 时间坐标列表。
+    - lons (list): 经度坐标列表。
+    - lats (list): 纬度坐标列表。
 
     返回:
     - tuple: (go.Figure, str) 包含更新后的图形对象和时间显示字符串。
     """
-    # 初始化图形对象
     fig = go.Figure(current_figure)
     fig.data = []
 
-    # 获取当前时间并格式化
-    current_time = pd.Timestamp(ds.time.isel(time=selected_time_index).values).tz_localize('UTC').tz_convert(
+    current_time = pd.Timestamp(time_coords[selected_time_index]).tz_localize('UTC').tz_convert(
         'Asia/Tokyo').strftime('%Y-%m-%d %H:%M')
     time_display = f"当前时间 (JST): {current_time}"
 
-    # 加载AR属性数据
-    length_data = ds['length'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    width_data = ds['width'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    life_data = ds['klifetime'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    distance_data = ds['kdist'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    id_data = ds['kid'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    axislon_data = ds['axislon'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    axislat_data = ds['axislat'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    kspeed_data = ds['kspeed'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    kstatus_data = ds['kstatus'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
+    # 从字典中提取数据
+    shapemap = np.array(ds_dict['variables']['shapemap'][selected_time_index])
+    ar_values = shapemap[::-1, :]
 
-    # --- 1. 绘制大气河流掩码（背景）和AR轴线 ---
-    shapemap = ds['shapemap'].isel(time=selected_time_index, ens=0, lev=0).compute()
-    ar_values = shapemap.values[::-1, :]
+    # 假设'length'等变量的数据结构与'shapemap'相同
+    length_data = np.array(ds_dict['variables']['length'][selected_time_index])
+    width_data = np.array(ds_dict['variables']['width'][selected_time_index])
+    life_data = np.array(ds_dict['variables']['klifetime'][selected_time_index])
+    distance_data = np.array(ds_dict['variables']['kdist'][selected_time_index])
+    id_data = np.array(ds_dict['variables']['kid'][selected_time_index])
+    axislon_data = np.array(ds_dict['variables']['axislon'][selected_time_index])
+    axislat_data = np.array(ds_dict['variables']['axislat'][selected_time_index])
+    kspeed_data = np.array(ds_dict['variables']['kspeed'][selected_time_index])
+    kstatus_data = np.array(ds_dict['variables']['kstatus'][selected_time_index])
+    clon_data = np.array(ds_dict['variables']['clon'][selected_time_index])
+    clat_data = np.array(ds_dict['variables']['clat'][selected_time_index])
+    ivt_x_data = np.array(ds_dict['variables']['ivtx'][selected_time_index])
+    ivt_y_data = np.array(ds_dict['variables']['ivty'][selected_time_index])
+    hlon_data = np.array(ds_dict['variables']['hlon'][selected_time_index])
+    hlat_data = np.array(ds_dict['variables']['hlat'][selected_time_index])
+    tlon_data = np.array(ds_dict['variables']['tlon'][selected_time_index])
+    tlat_data = np.array(ds_dict['variables']['tlat'][selected_time_index])
+    lflon_data = np.array(ds_dict['variables']['lflon'][selected_time_index])
+    lflat_data = np.array(ds_dict['variables']['lflat'][selected_time_index])
+    lfivtdir_data = np.array(ds_dict['variables']['lfivtdir'][selected_time_index])
+    lfivtx_data = np.array(ds_dict['variables']['lfivtx'][selected_time_index])
+    lfivty_data = np.array(ds_dict['variables']['lfivty'][selected_time_index])
+
     lon_grid, lat_grid = np.meshgrid(lons, lats)
     unique_ids = np.unique(ar_values[~np.isnan(ar_values)])
     colors = plotly.colors.qualitative.Plotly
@@ -49,38 +64,39 @@ def create_combined_ar_figure(selected_time_index, current_figure):
             lon_points = lon_grid[mask]
             lat_points = lat_grid[mask]
             if len(lon_points) > 0:
-                ar_length = length_data.values[int(uid) - 1]
-                ar_width = width_data.values[int(uid) - 1]
-                ar_life = life_data.values[int(uid) - 1]
-                ar_distance = distance_data.values[int(uid) - 1]
-                ar_id = id_data.values[int(uid) - 1]
-                ar_speed = kspeed_data.values[int(uid) - 1]
-                ar_status = kstatus_data.values[int(uid) - 1]
+                # 确保索引在数据范围内
+                ar_idx = int(uid) - 1
+                if ar_idx < len(length_data):
+                    ar_length = length_data[ar_idx]
+                    ar_width = width_data[ar_idx]
+                    ar_life = life_data[ar_idx]
+                    ar_distance = distance_data[ar_idx]
+                    ar_id = id_data[ar_idx]
+                    ar_speed = kspeed_data[ar_idx]
+                    ar_status = kstatus_data[ar_idx]
 
-                trace = go.Scattergeo(
-                    lon=lon_points,
-                    lat=lat_points,
-                    mode='markers',
-                    marker=dict(size=2, color=colors[idx % len(colors)], opacity=0.7),
-                    name=f'AR {int(uid)}',
-                    customdata=[[ar_length, ar_width, ar_life, ar_distance, ar_id, ar_speed, ar_status]] * len(
-                        lon_points),
-                    hovertemplate='<b>經度: %{lon:.2f} 緯度: %{lat:.2f}</b><br>'
-                                  'AR 長度: %{customdata[0]:.2f} m<br>'
-                                  'AR 寬度: %{customdata[1]:.2f} m<br>'
-                                  'AR 生命: %{customdata[2]:.2f} s<br>'
-                                  'AR 距離: %{customdata[3]:.2f} m<br>'
-                                  'AR 速度: %{customdata[5]:.2f} m/s<br>'
-                                  'AR 狀態: %{customdata[6]:.0f}<br>'
-                                  'AR 标识: %{customdata[4]:.2f} <extra></extra>',
-                    showlegend=True,
-                )
-                fig.add_trace(trace)
+                    trace = go.Scattergeo(
+                        lon=lon_points,
+                        lat=lat_points,
+                        mode='markers',
+                        marker=dict(size=2, color=colors[idx % len(colors)], opacity=0.7),
+                        name=f'AR {int(uid)}',
+                        customdata=[[ar_length, ar_width, ar_life, ar_distance, ar_id, ar_speed, ar_status]] * len(
+                            lon_points),
+                        hovertemplate='<b>經度: %{lon:.2f} 緯度: %{lat:.2f}</b><br>'
+                                      'AR 長度: %{customdata[0]:.2f} m<br>'
+                                      'AR 寬度: %{customdata[1]:.2f} m<br>'
+                                      'AR 生命: %{customdata[2]:.2f} s<br>'
+                                      'AR 距離: %{customdata[3]:.2f} m<br>'
+                                      'AR 速度: %{customdata[5]:.2f} m/s<br>'
+                                      'AR 狀態: %{customdata[6]:.0f}<br>'
+                                      'AR 标识: %{customdata[4]:.2f} <extra></extra>',
+                        showlegend=True,
+                    )
+                    fig.add_trace(trace)
 
-            axis_lon_points = axislon_data.isel(lat=int(uid) - 1).values[
-                ~np.isnan(axislon_data.isel(lat=int(uid) - 1).values)]
-            axis_lat_points = axislat_data.isel(lat=int(uid) - 1).values[
-                ~np.isnan(axislat_data.isel(lat=int(uid) - 1).values)]
+            axis_lon_points = np.array(axislon_data[int(uid) - 1])
+            axis_lat_points = np.array(axislat_data[int(uid) - 1])
 
             if len(axis_lon_points) > 0:
                 axis_trace = go.Scattergeo(
@@ -94,17 +110,11 @@ def create_combined_ar_figure(selected_time_index, current_figure):
                 )
                 fig.add_trace(axis_trace)
 
-    # --- 2. 繪製質心點和IVT向量 ---
-    clon_data = ds['clon'].isel(time=selected_time_index).squeeze().compute()
-    clat_data = ds['clat'].isel(time=selected_time_index).squeeze().compute()
-    ivt_x_data = ds['ivtx'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    ivt_y_data = ds['ivty'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-
-    ar_indices = np.where(~np.isnan(clon_data.values))[0]
-    lon_points_centroid = clon_data.values[ar_indices]
-    lat_points_centroid = clat_data.values[ar_indices]
-    ivt_x_points = ivt_x_data.values[ar_indices]
-    ivt_y_points = ivt_y_data.values[ar_indices]
+    ar_indices = np.where(~np.isnan(clon_data))[0]
+    lon_points_centroid = clon_data[ar_indices]
+    lat_points_centroid = clat_data[ar_indices]
+    ivt_x_points = ivt_x_data[ar_indices]
+    ivt_y_points = ivt_y_data[ar_indices]
 
     if len(lon_points_centroid) > 0:
         ivt_magnitude = np.sqrt(ivt_x_points ** 2 + ivt_y_points ** 2)
@@ -152,11 +162,8 @@ def create_combined_ar_figure(selected_time_index, current_figure):
         )
         fig.add_trace(ivt_vectors)
 
-    # --- 3. 繪製頭部點 ---
-    hlon_data = ds['hlon'].isel(time=selected_time_index).squeeze().compute()
-    hlat_data = ds['hlat'].isel(time=selected_time_index).squeeze().compute()
-    head_lon_points = hlon_data.values[~np.isnan(hlon_data.values)]
-    head_lat_points = hlat_data.values[~np.isnan(hlat_data.values)]
+    head_lon_points = hlon_data[~np.isnan(hlon_data)]
+    head_lat_points = hlat_data[~np.isnan(hlat_data)]
 
     if len(head_lon_points) > 0:
         head_trace = go.Scattergeo(
@@ -173,11 +180,8 @@ def create_combined_ar_figure(selected_time_index, current_figure):
         )
         fig.add_trace(head_trace)
 
-    # --- 4. 繪製尾部點 ---
-    tlon_data = ds['tlon'].isel(time=selected_time_index).squeeze().compute()
-    tlat_data = ds['tlat'].isel(time=selected_time_index).squeeze().compute()
-    tail_lon_points = tlon_data.values[~np.isnan(tlon_data.values)]
-    tail_lat_points = tlat_data.values[~np.isnan(tlat_data.values)]
+    tail_lon_points = tlon_data[~np.isnan(tlon_data)]
+    tail_lat_points = tlat_data[~np.isnan(tlat_data)]
 
     if len(tail_lon_points) > 0:
         tail_trace = go.Scattergeo(
@@ -193,19 +197,11 @@ def create_combined_ar_figure(selected_time_index, current_figure):
         )
         fig.add_trace(tail_trace)
 
-    # --- 5. 繪製登陸點 ---
-    lflon_data = ds['lflon'].isel(time=selected_time_index).squeeze().compute()
-    lflat_data = ds['lflat'].isel(time=selected_time_index).squeeze().compute()
-    lfivtdir_data = ds['lfivtdir'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    lfivtx_data = ds['lfivtx'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-    lfivty_data = ds['lfivty'].isel(time=selected_time_index, ens=0, lev=0).squeeze().compute()
-
-    valid_indices = ~np.isnan(lflon_data.values)
-    lon_points_landfall = lflon_data.values[valid_indices]
-    lat_points_landfall = lflat_data.values[valid_indices]
-    ivtdir_points = lfivtdir_data.values[valid_indices]
-    ivtx_points = lfivtx_data.values[valid_indices]
-    ivty_points = lfivty_data.values[valid_indices]
+    lon_points_landfall = lflon_data[~np.isnan(lflon_data)]
+    lat_points_landfall = lflat_data[~np.isnan(lflat_data)]
+    ivtdir_points = lfivtdir_data[~np.isnan(lflon_data)]
+    ivtx_points = lfivtx_data[~np.isnan(lflon_data)]
+    ivty_points = lfivty_data[~np.isnan(lflon_data)]
 
     if len(lon_points_landfall) > 0:
         hover_text = [
@@ -237,50 +233,7 @@ def create_combined_ar_figure(selected_time_index, current_figure):
     fig.update_layout(title=f"全球大气河流綜合可視化 - 時間: {current_time}", showlegend=True)
 
     covered_points = np.sum(~np.isnan(ar_values))
-    total_points = lons.size * lats.size
+    total_points = len(lons) * len(lats)
     time_display += f" | 覆蓋格點: {covered_points}/{total_points} ({covered_points / total_points * 100:.2f}%)"
 
     return fig, time_display
-
-
-def create_era5_figure(selected_time_index, selected_variable, current_figure):
-    fig = go.Figure(current_figure)
-    fig.data = []
-
-    current_time = pd.Timestamp(ds.time.isel(time=selected_time_index).values).tz_localize('UTC').tz_convert(
-        'Asia/Tokyo').strftime('%Y-%m-%d %H:%M')
-    time_display = f"当前时间 (JST): {current_time}"
-
-    # 定义变量映射和显示名称
-    variable_map = {
-        'ERA5-temp': {'data_var': 't2m', 'title': '2米温度 (K)', 'colorscale': 'Viridis'},
-        'ERA5-precip': {'data_var': 'tp', 'title': '总降水 (m)', 'colorscale': 'Blues'}
-    }
-
-    if selected_variable in variable_map:
-        var_info = variable_map[selected_variable]
-        data_var = var_info['data_var']
-        title = var_info['title']
-        colorscale = var_info['colorscale']
-
-        # 加载ERA5数据
-        era5_data = ds[data_var].isel(time=selected_time_index).squeeze().compute()
-        # 将数据翻转以匹配地图坐标
-        z_data = era5_data.values[::-1, :]
-
-        # 创建热力图
-        heatmap_trace = go.Heatmap(
-            z=z_data,
-            x=lons,
-            y=lats,
-            colorscale=colorscale,
-            name=title,
-            colorbar=dict(title=title)
-        )
-        fig.add_trace(heatmap_trace)
-
-        fig.update_layout(title=f"ERA5 {title} 可視化 - 時間: {current_time}", showlegend=False)
-        return fig, time_display
-    else:
-        # 如果变量不存在，返回一个空图
-        return fig, "变量未找到"
